@@ -1,0 +1,264 @@
+--[[
+    Script Name: Toro Hub - Steal an Egg
+    Style: Night Hub GUI
+--]]
+
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local VirtualUser = game:GetService("VirtualUser")
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
+local LocalPlayer = Players.LocalPlayer
+
+-- Kiểm tra xem đã load GUI cũ chưa để tránh bị lặp
+if game.CoreGui:FindFirstChild("ToroHubStealAnEgg") then
+    game.CoreGui.ToroHubStealAnEgg:Destroy()
+end
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "ToroHubStealAnEgg"
+ScreenGui.Parent = game.CoreGui
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+-- Trạng thái tính năng
+local _G_Config = {
+    AutoFarm = false,
+    SelectedTier = "All",
+    AntiAFK = true,
+    AntiBan = true,
+    Treadmill = false
+}
+
+-- Hàm Anti-AFK
+local function setupAntiAFK()
+    LocalPlayer.Idled:Connect(function()
+        if _G_Config.AntiAFK then
+            VirtualUser:CaptureController()
+            VirtualUser:ClickButton2(Vector2.new())
+        end
+    end)
+end
+task.spawn(setupAntiAFK)
+
+-- Hàm Anti-Ban giả lập thao tác tự nhiên
+task.spawn(function()
+    while task.wait(30) do
+        if _G_Config.AntiBan then
+            -- Thực hiện chuyển động vi mô ngẫu nhiên tránh bị phát hiện bot
+            local character = LocalPlayer.Character
+            if character and character:FindFirstChild("HumanoidRootPart") then
+                character.HumanoidRootPart.CFrame = character.HumanoidRootPart.CFrame * CFrame.Angles(0, math.rad(math.random(-5, 5)), 0)
+            end
+        end
+    end
+end)
+
+-- Tạo giao diện (Phong cách Night Hub: Dark/Purple Accent)
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 25)
+MainFrame.Position = UDim2.new(0.5, -275, 0.5, -175)
+MainFrame.Size = UDim2.new(0, 550, 0, 350)
+MainFrame.Active = true
+MainFrame.Draggable = true
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 10)
+UICorner.Parent = MainFrame
+
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Color = Color3.fromRGB(138, 43, 226)
+UIStroke.Thickness = 2
+UIStroke.Parent = MainFrame
+
+-- Tiêu đề Hub
+local Title = Instance.new("TextLabel")
+Title.Parent = MainFrame
+Title.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+Title.Size = UDim2.new(1, 0, 0, 40)
+Title.Font = Enum.Font.GothamBold
+Title.Text = "  TORO HUB | Steal an Egg (Night Hub Style)"
+Title.TextColor3 = Color3.fromRGB(230, 230, 250)
+Title.TextSize = 16
+Title.TextXAlignment = Enum.TextXAlignment.Left
+
+local TitleCorner = Instance.new("UICorner")
+TitleCorner.CornerRadius = UDim.new(0, 10)
+TitleCorner.Parent = Title
+
+-- Container chứa các nút chức năng chính
+local ContentFrame = Instance.new("ScrollingFrame")
+ContentFrame.Parent = MainFrame
+ContentFrame.BackgroundTransparency = 1
+ContentFrame.Position = UDim2.new(0, 15, 0, 55)
+ContentFrame.Size = UDim2.new(1, -30, 1, -70)
+ContentFrame.CanvasSize = UDim2.new(0, 0, 2, 0)
+ContentFrame.ScrollBarThickness = 4
+
+local UIListLayout = Instance.new("UIListLayout")
+UIListLayout.Parent = ContentFrame
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+UIListLayout.Padding = UDim.new(0, 10)
+
+-- Hàm tạo nút bấm phong cách Night Hub
+local function createButton(name, callback)
+    local btn = Instance.new("TextButton")
+    btn.Parent = ContentFrame
+    btn.BackgroundColor3 = Color3.fromRGB(45, 35, 75)
+    btn.Size = UDim2.new(1, 0, 0, 40)
+    btn.Font = Enum.Font.GothamSemibold
+    btn.Text = name
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextSize = 14
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 6)
+    corner.Parent = btn
+    
+    btn.MouseButton1Click:Connect(callback)
+    return btn
+end
+
+-- 1. Nút Bật/Tắt Auto Farm Trứng & Chọn Cấp Bậc
+createButton("Toggle Auto Farm & Chọn Cấp Bậc Trứng", function()
+    _G_Config.AutoFarm = not _G_Config.AutoFarm
+    print("Auto Farm:", _G_Config.AutoFarm)
+    -- Logic tự động tìm và dịch chuyển nhặt trứng theo Tier sẽ chạy ở đây
+end)
+
+-- 2. Nút Chạy tự động trên máy chạy bộ (Treadmill)
+createButton("Tự động chạy trên Máy chạy bộ (Anti-AFK Training)", function()
+    _G_Config.Treadmill = not _G_Config.Treadmill
+    task.spawn(function()
+        while _G_Config.Treadmill do
+            task.wait(0.5)
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                -- Giả lập di chuyển nhẹ trên máy chạy bộ
+                char.HumanoidRootPart.CFrame = char.HumanoidRootPart.CFrame + Vector3.new(0, 0, 0.1)
+            end
+        end
+    end)
+end)
+
+-- Tạo bảng xếp hạng (Leaderboard Modal UI)
+local function createRankingModal(titleText, isCrossServer)
+    if game.CoreGui:FindFirstChild("ToroRankingModal") then
+        game.CoreGui.ToroRankingModal:Destroy()
+    end
+    
+    local modal = Instance.new("Frame")
+    modal.Name = "ToroRankingModal"
+    modal.Parent = ScreenGui
+    modal.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+    modal.Position = UDim2.new(0.5, -200, 0.5, -175)
+    modal.Size = UDim2.new(0, 400, 0, 350)
+    modal.Active = true
+    modal.Draggable = true
+    
+    local mCorner = Instance.new("UICorner")
+    mCorner.CornerRadius = UDim.new(0, 10)
+    mCorner.Parent = modal
+    
+    local mTitle = Instance.new("TextLabel")
+    mTitle.Parent = modal
+    mTitle.Size = UDim2.new(1, -40, 0, 40)
+    mTitle.BackgroundTransparency = 1
+    mTitle.Font = Enum.Font.GothamBold
+    mTitle.Text = titleText
+    mTitle.TextColor3 = Color3.fromRGB(255, 215, 0)
+    mTitle.TextSize = 14
+    mTitle.TextXAlignment = Enum.TextXAlignment.Left
+    mTitle.Position = UDim2.new(0, 15, 0, 0)
+    
+    local closeBtn = Instance.new("TextButton")
+    closeBtn.Parent = modal
+    closeBtn.Size = UDim2.new(0, 30, 0, 30)
+    closeBtn.Position = UDim2.new(1, -35, 0, 5)
+    closeBtn.BackgroundColor3 = Color3.fromRGB(150, 50, 50)
+    closeBtn.Text = "X"
+    closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    closeBtn.Font = Enum.Font.GothamBold
+    closeBtn.MouseButton1Click:Connect(function()
+        modal:Destroy()
+    end)
+    
+    local scroller = Instance.new("ScrollingFrame")
+    scroller.Parent = modal
+    scroller.BackgroundTransparency = 1
+    scroller.Position = UDim2.new(0, 10, 0, 50)
+    scroller.Size = UDim2.new(1, -20, 1, -60)
+    scroller.CanvasSize = UDim2.new(0, 0, 2, 0)
+    scroller.ScrollBarThickness = 4
+    
+    local sLayout = Instance.new("UIListLayout")
+    sLayout.Parent = scroller
+    sLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    sLayout.Padding = UDim.new(0, 5)
+    
+    -- Dữ liệu giả lập mẫu hiển thị xếp hạng Giá trị / s (Money/s)
+    local sampleData = {
+        {name = "Golden Egg (Tier S)", value = "1,500,000 $/s", serverId = "server_1"},
+        {name = "Diamond Egg (Tier A)", value = "850,000 $/s", serverId = "server_2"},
+        {name = "Ruby Egg (Tier B)", value = "420,000 $/s", serverId = "server_3"},
+        {name = "Normal Egg (Tier C)", value = "100,000 $/s", serverId = "server_4"}
+    }
+    
+    for i, data in ipairs(sampleData) do
+        local itemFrame = Instance.new("Frame")
+        itemFrame.Parent = scroller
+        itemFrame.Size = UDim2.new(1, 0, 0, 45)
+        itemFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
+        
+        local iCorner = Instance.new("UICorner")
+        iCorner.CornerRadius = UDim.new(0, 6)
+        iCorner.Parent = itemFrame
+        
+        local infoLabel = Instance.new("TextLabel")
+        infoLabel.Parent = itemFrame
+        infoLabel.Size = UDim2.new(0.6, 0, 1, 0)
+        infoLabel.Position = UDim2.new(0, 10, 0, 0)
+        infoLabel.BackgroundTransparency = 1
+        infoLabel.Font = Enum.Font.Gotham
+        infoLabel.Text = i..". "..data.name.."\nRate: "..data.value
+        infoLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+        infoLabel.TextSize = 12
+        infoLabel.TextXAlignment = Enum.TextXAlignment.Left
+        
+        local actionBtn = Instance.new("TextButton")
+        actionBtn.Parent = itemFrame
+        actionBtn.Size = UDim2.new(0.35, 0, 0, 30)
+        actionBtn.Position = UDim2.new(0.62, 0, 0.15, 0)
+        actionBtn.BackgroundColor3 = Color3.fromRGB(75, 0, 130)
+        actionBtn.Font = Enum.Font.GothamBold
+        actionBtn.Text = isCrossServer and "Join Server" or "Đi tới Trứng"
+        actionBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        actionBtn.TextSize = 11
+        
+        local bCorner = Instance.new("UICorner")
+        bCorner.CornerRadius = UDim.new(0, 4)
+        bCorner.Parent = actionBtn
+        
+        actionBtn.MouseButton1Click:Connect(function()
+            if isCrossServer then
+                print("Đang thực hiện chuyển sang Server tối ưu có trứng cao nhất...")
+                -- TeleportService:TeleportToPlaceInstance(game.PlaceId, data.serverId, LocalPlayer)
+            else
+                print("Đang định vị và di chuyển đến vị trí quả trứng...")
+            end
+        end)
+    end
+end
+
+-- 3. Nút mở bảng xếp hạng Giá trị/s (Server hiện tại)
+createButton("Bảng Xếp Hạng Trứng Theo Giá Trị ($/s)", function()
+    createRankingModal("Xếp Hạng Trứng (Server Hiện Tại)", false)
+end)
+
+-- 4. Nút mở bảng xếp hạng Liên Server & Tích hợp Auto Join
+createButton("Xếp Hạng Trứng Liên Server & Tự Động Join", function()
+    createRankingModal("Xếp Hạng Trứng Liên Server (Cross-Server)", true)
+end)
+
+print("Toro Hub loaded successfully!")
